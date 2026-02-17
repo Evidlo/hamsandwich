@@ -1,5 +1,5 @@
 import type { HellFont } from './font.ts';
-import { BAUD_RATE, CHAR_GAP_COLUMNS, DEFAULT_TONE_HZ, PIXEL_HEIGHT, SAMPLE_RATE } from './constants.ts';
+import { BAUD_RATE, CHAR_GAP_COLUMNS, COLUMN_HEIGHT, DEFAULT_TONE_HZ, GLYPH_HEIGHT, SAMPLE_RATE } from './constants.ts';
 
 export interface EncodeOptions {
   sampleRate?: number;
@@ -11,7 +11,7 @@ export interface EncodeOptions {
  *
  * Feld-Hell transmits characters as a bitmap, column by column, bottom to top.
  * Each pixel is either tone-on or silence for one pixel duration (1/BAUD_RATE seconds).
- * Each column has PIXEL_HEIGHT pixels scanned from bottom row to top row.
+ * Each column has COLUMN_HEIGHT (14) pixels: the glyph is sent twice (double print).
  */
 export function encode(text: string, font: HellFont, opts: EncodeOptions = {}): Float32Array {
   const sampleRate = opts.sampleRate ?? SAMPLE_RATE;
@@ -27,7 +27,7 @@ export function encode(text: string, font: HellFont, opts: EncodeOptions = {}): 
     totalColumns += glyphWidth + CHAR_GAP_COLUMNS;
   }
 
-  const totalSamples = totalColumns * PIXEL_HEIGHT * samplesPerPixel;
+  const totalSamples = totalColumns * COLUMN_HEIGHT * samplesPerPixel;
   const samples = new Float32Array(totalSamples);
 
   // Second pass: generate audio
@@ -42,25 +42,25 @@ export function encode(text: string, font: HellFont, opts: EncodeOptions = {}): 
 
     // Transmit glyph column by column (left to right)
     for (let col = 0; col < glyphWidth; col++) {
-      // Each column scanned bottom to top (row height-1 down to row 0)
-      for (let row = PIXEL_HEIGHT - 1; row >= 0; row--) {
-        const pixelOn = (row < glyph.length) ? glyph[row]![col]! : 0;
+      // Double print: send the glyph twice per column (bottom to top each time)
+      for (let copy = 0; copy < 2; copy++) {
+        for (let row = GLYPH_HEIGHT - 1; row >= 0; row--) {
+          const pixelOn = (row < glyph.length) ? glyph[row]![col]! : 0;
 
-        for (let s = 0; s < samplesPerPixel; s++) {
-          if (pixelOn) {
-            // Generate sine wave tone
-            const t = (sampleIndex + s) / sampleRate;
-            samples[sampleIndex + s] = Math.sin(angularFreq * t);
+          for (let s = 0; s < samplesPerPixel; s++) {
+            if (pixelOn) {
+              const t = (sampleIndex + s) / sampleRate;
+              samples[sampleIndex + s] = Math.sin(angularFreq * t);
+            }
           }
-          // else: samples already initialized to 0
+          sampleIndex += samplesPerPixel;
         }
-        sampleIndex += samplesPerPixel;
       }
     }
 
     // Inter-character gap (silence)
     for (let col = 0; col < CHAR_GAP_COLUMNS; col++) {
-      sampleIndex += PIXEL_HEIGHT * samplesPerPixel;
+      sampleIndex += COLUMN_HEIGHT * samplesPerPixel;
     }
   }
 
@@ -70,7 +70,8 @@ export function encode(text: string, font: HellFont, opts: EncodeOptions = {}): 
 /**
  * Get the pixel columns for a text string (without audio generation).
  * Useful for testing and visualization.
- * Returns array of columns, each column is PIXEL_HEIGHT values (top to bottom, 0 or 1).
+ * Returns array of columns, each column is COLUMN_HEIGHT values (top to bottom, 0 or 1).
+ * The glyph appears twice (double print).
  */
 export function textToPixelColumns(text: string, font: HellFont): number[][] {
   const columns: number[][] = [];
@@ -83,15 +84,18 @@ export function textToPixelColumns(text: string, font: HellFont): number[][] {
 
     for (let col = 0; col < glyphWidth; col++) {
       const column: number[] = [];
-      for (let row = 0; row < PIXEL_HEIGHT; row++) {
-        column.push((row < glyph.length) ? (glyph[row]![col] ?? 0) : 0);
+      // Double print: glyph rows twice
+      for (let copy = 0; copy < 2; copy++) {
+        for (let row = 0; row < GLYPH_HEIGHT; row++) {
+          column.push((row < glyph.length) ? (glyph[row]![col] ?? 0) : 0);
+        }
       }
       columns.push(column);
     }
 
     // Inter-character gap
     for (let i = 0; i < CHAR_GAP_COLUMNS; i++) {
-      columns.push(new Array(PIXEL_HEIGHT).fill(0));
+      columns.push(new Array(COLUMN_HEIGHT).fill(0));
     }
   }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { encode, textToPixelColumns } from '../../src/hell/encoder.ts';
 import { BUILTIN_FONT } from '../../src/hell/font.ts';
-import { PIXEL_HEIGHT, CHAR_GAP_COLUMNS } from '../../src/hell/constants.ts';
+import { COLUMN_HEIGHT, GLYPH_HEIGHT, CHAR_GAP_COLUMNS } from '../../src/hell/constants.ts';
 
 describe('textToPixelColumns', () => {
   it('produces correct column count for a single character', () => {
@@ -11,10 +11,10 @@ describe('textToPixelColumns', () => {
     expect(columns.length).toBe(expectedCols);
   });
 
-  it('produces columns with correct height', () => {
+  it('produces columns with correct height (double print)', () => {
     const columns = textToPixelColumns('H', BUILTIN_FONT);
     for (const col of columns) {
-      expect(col.length).toBe(PIXEL_HEIGHT);
+      expect(col.length).toBe(COLUMN_HEIGHT);
     }
   });
 
@@ -34,14 +34,19 @@ describe('textToPixelColumns', () => {
     expect(columns.length).toBe(0);
   });
 
-  it('pixel columns match the font glyph data', () => {
+  it('pixel columns contain the glyph data twice (double print)', () => {
     const glyph = BUILTIN_FONT.getGlyph('T')!;
     const columns = textToPixelColumns('T', BUILTIN_FONT);
 
     // Check glyph columns (excluding the gap)
     for (let col = 0; col < glyph[0]!.length; col++) {
-      for (let row = 0; row < PIXEL_HEIGHT; row++) {
+      // First copy (rows 0-6)
+      for (let row = 0; row < GLYPH_HEIGHT; row++) {
         expect(columns[col]![row]).toBe(glyph[row]![col]);
+      }
+      // Second copy (rows 7-13)
+      for (let row = 0; row < GLYPH_HEIGHT; row++) {
+        expect(columns[col]![GLYPH_HEIGHT + row]).toBe(glyph[row]![col]);
       }
     }
   });
@@ -55,7 +60,6 @@ describe('encode', () => {
 
   it('produces silence for space character', () => {
     const samples = encode(' ', BUILTIN_FONT);
-    // Space glyph is all zeros, so all samples should be 0
     for (let i = 0; i < samples.length; i++) {
       expect(samples[i]).toBe(0);
     }

@@ -1,4 +1,4 @@
-import { BAUD_RATE, DEFAULT_TONE_HZ, PIXEL_HEIGHT, SAMPLE_RATE } from './constants.ts';
+import { BAUD_RATE, DEFAULT_TONE_HZ, COLUMN_HEIGHT, SAMPLE_RATE } from './constants.ts';
 
 export interface DecodeOptions {
   sampleRate?: number;
@@ -56,23 +56,23 @@ export function samplesPerColumn(opts: DecodeOptions = {}): number {
   const sampleRate = opts.sampleRate ?? SAMPLE_RATE;
   const samplesPerPixel = Math.round(sampleRate / BAUD_RATE);
   const windowSize = Math.round(samplesPerPixel / SUB_PIXEL_FACTOR);
-  return PIXEL_HEIGHT * SUB_PIXEL_FACTOR * windowSize;
+  return COLUMN_HEIGHT * SUB_PIXEL_FACTOR * windowSize;
 }
 
 /**
  * Arrange energy estimates into pixel columns for display.
- * Each column is PIXEL_HEIGHT values (top to bottom), with each value being
+ * Each column is COLUMN_HEIGHT values (top to bottom), with each value being
  * the max energy from the sub-pixel estimates spanning that pixel.
  * Pixels are in transmission order (bottom to top), remapped to display order.
  */
 export function energyToColumns(energies: Float32Array): number[][] {
-  const subPixelsPerColumn = PIXEL_HEIGHT * SUB_PIXEL_FACTOR;
+  const subPixelsPerColumn = COLUMN_HEIGHT * SUB_PIXEL_FACTOR;
   const totalColumns = Math.floor(energies.length / subPixelsPerColumn);
   const columns: number[][] = [];
 
   for (let col = 0; col < totalColumns; col++) {
-    const column: number[] = new Array(PIXEL_HEIGHT);
-    for (let pixel = 0; pixel < PIXEL_HEIGHT; pixel++) {
+    const column: number[] = new Array(COLUMN_HEIGHT);
+    for (let pixel = 0; pixel < COLUMN_HEIGHT; pixel++) {
       // Find max energy across sub-pixel estimates for this pixel
       const subStart = col * subPixelsPerColumn + pixel * SUB_PIXEL_FACTOR;
       let maxEnergy = 0;
@@ -80,8 +80,8 @@ export function energyToColumns(energies: Float32Array): number[][] {
         const e = energies[subStart + sub]!;
         if (e > maxEnergy) maxEnergy = e;
       }
-      // pixel 0 in transmission = bottom row = row (PIXEL_HEIGHT-1) in display
-      column[PIXEL_HEIGHT - 1 - pixel] = maxEnergy;
+      // pixel 0 in transmission = bottom row = row (COLUMN_HEIGHT-1) in display
+      column[COLUMN_HEIGHT - 1 - pixel] = maxEnergy;
     }
     columns.push(column);
   }

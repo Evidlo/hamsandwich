@@ -7,8 +7,11 @@ export const SAMPLE_RATE = 48000;
 /** Default tone frequency in Hz */
 export const DEFAULT_TONE_HZ = 980;
 
-/** Pixel height of each character column */
-export const PIXEL_HEIGHT = 7;
+/** Height of the font glyphs in rows */
+export const GLYPH_HEIGHT = 7;
+
+/** Pixel height of each transmitted column (glyph sent twice = double print) */
+export const COLUMN_HEIGHT = 14;
 
 /** Number of audio samples per pixel */
 export const SAMPLES_PER_PIXEL = Math.round(SAMPLE_RATE / BAUD_RATE);

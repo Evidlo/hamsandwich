@@ -1,15 +1,12 @@
 import { decode, samplesPerColumn } from '../hell/decoder.ts';
-import { PIXEL_HEIGHT } from '../hell/constants.ts';
+import { COLUMN_HEIGHT } from '../hell/constants.ts';
 import { AudioCapture } from '../audio/input.ts';
 
 const PIXEL_SIZE = 4;
 const PAD = 5;
 const CANVAS_WIDTH_COLUMNS = 300;
-const LINE_HEIGHT = PIXEL_HEIGHT * PIXEL_SIZE;
-const HALF_HEIGHT = Math.ceil(PIXEL_HEIGHT / 2) * PIXEL_SIZE;
-/** Height of one triple-view section: bottom-half + complete + top-half */
-const SECTION_HEIGHT = HALF_HEIGHT + LINE_HEIGHT + HALF_HEIGHT;
-const SECTION_GAP = 8;
+const LINE_HEIGHT = COLUMN_HEIGHT * PIXEL_SIZE;
+const LINE_GAP = 8;
 
 export class DecodePanel {
   private container: HTMLElement;
@@ -45,8 +42,8 @@ export class DecodePanel {
 
     const contentWidth = CANVAS_WIDTH_COLUMNS * PIXEL_SIZE;
     const canvasWidth = contentWidth + PAD * 2;
-    // Two sections (active + previous) with padding
-    const canvasHeight = PAD + SECTION_HEIGHT + SECTION_GAP + SECTION_HEIGHT + PAD;
+    // Two lines (active + previous) with padding
+    const canvasHeight = PAD + LINE_HEIGHT + LINE_GAP + LINE_HEIGHT + PAD;
     this.canvas.width = canvasWidth;
     this.canvas.height = canvasHeight;
     this.canvas.style.width = `${canvasWidth}px`;
@@ -67,14 +64,14 @@ export class DecodePanel {
     this.toneHz = hz;
   }
 
-  /** Y offset of the active (top) section */
-  private get activeSectionY(): number {
+  /** Y offset of the active (top) line */
+  private get activeLineY(): number {
     return PAD;
   }
 
-  /** Y offset of the previous (bottom) section */
-  private get prevSectionY(): number {
-    return PAD + SECTION_HEIGHT + SECTION_GAP;
+  /** Y offset of the previous (bottom) line */
+  private get prevLineY(): number {
+    return PAD + LINE_HEIGHT + LINE_GAP;
   }
 
   private async toggle(): Promise<void> {
@@ -127,72 +124,42 @@ export class DecodePanel {
   }
 
   private drawColumn(column: number[]): void {
-    // If cursor has reached the end, copy active section to previous and clear active
+    // If cursor has reached the end, copy active line to previous and clear active
     if (this.columnPos >= CANVAS_WIDTH_COLUMNS) {
       const activeData = this.ctx.getImageData(
-        PAD, this.activeSectionY,
-        CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, SECTION_HEIGHT,
+        PAD, this.activeLineY,
+        CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, LINE_HEIGHT,
       );
-      // Clear previous section
+      // Clear previous line
       this.ctx.fillStyle = '#000';
-      this.ctx.fillRect(PAD, this.prevSectionY, CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, SECTION_HEIGHT);
+      this.ctx.fillRect(PAD, this.prevLineY, CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, LINE_HEIGHT);
       // Paste active to previous
-      this.ctx.putImageData(activeData, PAD, this.prevSectionY);
-      // Clear active section
+      this.ctx.putImageData(activeData, PAD, this.prevLineY);
+      // Clear active line
       this.ctx.fillStyle = '#000';
-      this.ctx.fillRect(PAD, this.activeSectionY, CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, SECTION_HEIGHT);
+      this.ctx.fillRect(PAD, this.activeLineY, CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, LINE_HEIGHT);
       this.columnPos = 0;
     }
 
     const x = PAD + this.columnPos * PIXEL_SIZE;
-    const sectionY = this.activeSectionY;
 
-    // Clear this column across the entire active section
+    // Clear this column on active line
     this.ctx.fillStyle = '#000';
-    this.ctx.fillRect(x, sectionY, PIXEL_SIZE, SECTION_HEIGHT);
+    this.ctx.fillRect(x, this.activeLineY, PIXEL_SIZE, LINE_HEIGHT);
 
-    // Draw triple view for this column:
-    // 1. Bottom half (rows PIXEL_HEIGHT/2 .. PIXEL_HEIGHT-1) at top
-    // 2. Complete line (rows 0 .. PIXEL_HEIGHT-1) in middle
-    // 3. Top half (rows 0 .. PIXEL_HEIGHT/2-1) at bottom
-    const halfRows = Math.ceil(PIXEL_HEIGHT / 2);
-
-    // Bottom-half section (top of triple view)
-    const bottomHalfStartRow = PIXEL_HEIGHT - halfRows;
-    for (let r = 0; r < halfRows; r++) {
-      const energy = column[bottomHalfStartRow + r]!;
-      if (energy > 0) {
-        const g = Math.round(Math.min(energy, 1) * 255);
-        this.ctx.fillStyle = `rgb(0,${g},0)`;
-        this.ctx.fillRect(x, sectionY + r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
-      }
-    }
-
-    // Complete line (middle of triple view)
-    const completeY = sectionY + HALF_HEIGHT;
-    for (let r = 0; r < PIXEL_HEIGHT; r++) {
+    // Draw pixels with analog intensity
+    for (let r = 0; r < COLUMN_HEIGHT; r++) {
       const energy = column[r]!;
       if (energy > 0) {
         const g = Math.round(Math.min(energy, 1) * 255);
         this.ctx.fillStyle = `rgb(0,${g},0)`;
-        this.ctx.fillRect(x, completeY + r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
-      }
-    }
-
-    // Top-half section (bottom of triple view)
-    const topHalfY = completeY + LINE_HEIGHT;
-    for (let r = 0; r < halfRows; r++) {
-      const energy = column[r]!;
-      if (energy > 0) {
-        const g = Math.round(Math.min(energy, 1) * 255);
-        this.ctx.fillStyle = `rgb(0,${g},0)`;
-        this.ctx.fillRect(x, topHalfY + r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        this.ctx.fillRect(x, this.activeLineY + r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
       }
     }
 
     this.columnPos++;
 
-    // Draw red cursor line at current position across active section
+    // Draw red cursor line at current position
     this.drawCursor();
   }
 
@@ -201,8 +168,8 @@ export class DecodePanel {
     this.ctx.strokeStyle = '#f00';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
-    this.ctx.moveTo(x + 0.5, this.activeSectionY);
-    this.ctx.lineTo(x + 0.5, this.activeSectionY + SECTION_HEIGHT);
+    this.ctx.moveTo(x + 0.5, this.activeLineY);
+    this.ctx.lineTo(x + 0.5, this.activeLineY + LINE_HEIGHT);
     this.ctx.stroke();
   }
 }

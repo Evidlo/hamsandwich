@@ -1,6 +1,6 @@
 import { encode, textToPixelColumns } from '../hell/encoder.ts';
 import { BUILTIN_FONT } from '../hell/font.ts';
-import { BAUD_RATE, PIXEL_HEIGHT } from '../hell/constants.ts';
+import { BAUD_RATE, COLUMN_HEIGHT } from '../hell/constants.ts';
 import { AudioPlayer } from '../audio/output.ts';
 
 const PIXEL_SIZE = 4;
@@ -59,7 +59,7 @@ export class EncodePanel {
 
     // Start cursor animation
     const totalColumns = columns.length;
-    const secondsPerColumn = PIXEL_HEIGHT / BAUD_RATE;
+    const secondsPerColumn = COLUMN_HEIGHT / BAUD_RATE;
     const totalDuration = totalColumns * secondsPerColumn;
     const startTime = performance.now();
 
@@ -98,7 +98,7 @@ export class EncodePanel {
 
   private renderColumns(columns: number[][]): void {
     const contentWidth = columns.length * PIXEL_SIZE;
-    const contentHeight = PIXEL_HEIGHT * PIXEL_SIZE;
+    const contentHeight = COLUMN_HEIGHT * PIXEL_SIZE;
     const width = contentWidth + PAD * 2;
     const height = contentHeight + PAD * 2;
     this.canvas.width = width;
@@ -112,7 +112,7 @@ export class EncodePanel {
     this.ctx.fillStyle = '#0f0';
     for (let c = 0; c < columns.length; c++) {
       const col = columns[c]!;
-      for (let r = 0; r < PIXEL_HEIGHT; r++) {
+      for (let r = 0; r < COLUMN_HEIGHT; r++) {
         if (col[r]) {
           this.ctx.fillRect(PAD + c * PIXEL_SIZE, PAD + r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
         }

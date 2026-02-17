@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { decode } from '../../src/hell/decoder.ts';
-import { BAUD_RATE, PIXEL_HEIGHT, SAMPLE_RATE, DEFAULT_TONE_HZ } from '../../src/hell/constants.ts';
+import { BAUD_RATE, COLUMN_HEIGHT, SAMPLE_RATE, DEFAULT_TONE_HZ } from '../../src/hell/constants.ts';
 
 /** Threshold analog energy values to binary for comparison */
 function threshold(columns: number[][], t = 0.3): number[][] {
@@ -29,19 +29,18 @@ describe('decode', () => {
   }
 
   it('decodes a single all-on column with high energy', () => {
-    const pattern = new Array(PIXEL_HEIGHT).fill(1);
+    const pattern = new Array(COLUMN_HEIGHT).fill(1);
     const samples = generateTonePixels(pattern);
     const columns = decode(samples);
 
     expect(columns.length).toBe(1);
-    // All pixels should have high energy
     for (const val of columns[0]!) {
       expect(val).toBeGreaterThan(0.5);
     }
   });
 
   it('decodes a single all-off column with near-zero energy', () => {
-    const pattern = new Array(PIXEL_HEIGHT).fill(0);
+    const pattern = new Array(COLUMN_HEIGHT).fill(0);
     const samples = generateTonePixels(pattern);
     const columns = decode(samples);
 
@@ -52,14 +51,17 @@ describe('decode', () => {
   });
 
   it('decodes mixed on/off pixels with correct row ordering', () => {
-    // Transmission order bottom to top: [1,0,0,0,0,0,0] = bottom pixel on
-    const transmissionOrder = [1, 0, 0, 0, 0, 0, 0];
+    // Transmission order bottom to top: first pixel on, rest off
+    const transmissionOrder = new Array(COLUMN_HEIGHT).fill(0);
+    transmissionOrder[0] = 1; // bottom pixel on
     const samples = generateTonePixels(transmissionOrder);
     const columns = decode(samples);
 
     expect(columns.length).toBe(1);
-    // In display order (top to bottom), only the bottom pixel (row 6) should be on
-    expect(threshold(columns)[0]).toEqual([0, 0, 0, 0, 0, 0, 1]);
+    // In display order (top to bottom), only the bottom pixel should be on
+    const binary = threshold(columns)[0]!;
+    expect(binary[COLUMN_HEIGHT - 1]).toBe(1);
+    expect(binary.slice(0, COLUMN_HEIGHT - 1).every(v => v === 0)).toBe(true);
   });
 
   it('returns empty for insufficient samples', () => {
