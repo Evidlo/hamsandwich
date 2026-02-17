@@ -6,53 +6,93 @@ export interface DecodeOptions {
 }
 
 /**
- * Decode Feld-Hell audio samples into pixel columns with analog energy values.
- *
- * Pipeline: Goertzel energy detection per pixel window → arrange into columns.
- * Each returned column is PIXEL_HEIGHT values (top to bottom).
- * Values are normalized energy levels (0.0 = silence, higher = more energy at tone freq).
- * Values are NOT thresholded — the display layer decides how to render them.
+ * Number of sub-pixel energy estimates per pixel duration.
+ * Higher = sharper edges when timing is misaligned, but more CPU.
  */
-export function decode(samples: Float32Array, opts: DecodeOptions = {}): number[][] {
+const SUB_PIXEL_FACTOR = 4;
+
+/**
+ * Decode Feld-Hell audio samples into a continuous stream of energy estimates.
+ *
+ * Returns energy values at sub-pixel resolution. Each value represents the
+ * tone energy over a short window (1/SUB_PIXEL_FACTOR of a pixel duration).
+ * The caller arranges these into display rows/columns.
+ *
+ * Returns a Float32Array of energy values (0.0 = silence, ~1.0 = full tone).
+ */
+export function decodeEnergy(samples: Float32Array, opts: DecodeOptions = {}): Float32Array {
   const sampleRate = opts.sampleRate ?? SAMPLE_RATE;
   const toneHz = opts.toneHz ?? DEFAULT_TONE_HZ;
   const samplesPerPixel = Math.round(sampleRate / BAUD_RATE);
+  const windowSize = Math.round(samplesPerPixel / SUB_PIXEL_FACTOR);
 
-  // Goertzel energy detection per pixel window
-  const totalPixels = Math.floor(samples.length / samplesPerPixel);
-  const energies = new Float32Array(totalPixels);
+  const totalWindows = Math.floor(samples.length / windowSize);
+  const energies = new Float32Array(totalWindows);
 
   const angularFreq = 2 * Math.PI * toneHz / sampleRate;
 
-  for (let p = 0; p < totalPixels; p++) {
-    const start = p * samplesPerPixel;
+  for (let w = 0; w < totalWindows; w++) {
+    const start = w * windowSize;
     let sinSum = 0;
     let cosSum = 0;
 
-    for (let s = 0; s < samplesPerPixel; s++) {
+    for (let s = 0; s < windowSize; s++) {
       const sample = samples[start + s]!;
       const angle = angularFreq * s;
       sinSum += sample * Math.sin(angle);
       cosSum += sample * Math.cos(angle);
     }
 
-    // Normalized energy (magnitude of DFT bin at tone frequency)
-    energies[p] = Math.sqrt(sinSum * sinSum + cosSum * cosSum) / (samplesPerPixel / 2);
+    energies[w] = Math.sqrt(sinSum * sinSum + cosSum * cosSum) / (windowSize / 2);
   }
 
-  // Arrange into pixel columns (transmitted bottom to top, stored top to bottom)
-  const totalColumns = Math.floor(totalPixels / PIXEL_HEIGHT);
+  return energies;
+}
+
+/**
+ * Number of audio samples consumed to produce the given number of decoded columns.
+ */
+export function samplesPerColumn(opts: DecodeOptions = {}): number {
+  const sampleRate = opts.sampleRate ?? SAMPLE_RATE;
+  const samplesPerPixel = Math.round(sampleRate / BAUD_RATE);
+  const windowSize = Math.round(samplesPerPixel / SUB_PIXEL_FACTOR);
+  return PIXEL_HEIGHT * SUB_PIXEL_FACTOR * windowSize;
+}
+
+/**
+ * Arrange energy estimates into pixel columns for display.
+ * Each column is PIXEL_HEIGHT values (top to bottom), with each value being
+ * the max energy from the sub-pixel estimates spanning that pixel.
+ * Pixels are in transmission order (bottom to top), remapped to display order.
+ */
+export function energyToColumns(energies: Float32Array): number[][] {
+  const subPixelsPerColumn = PIXEL_HEIGHT * SUB_PIXEL_FACTOR;
+  const totalColumns = Math.floor(energies.length / subPixelsPerColumn);
   const columns: number[][] = [];
 
   for (let col = 0; col < totalColumns; col++) {
     const column: number[] = new Array(PIXEL_HEIGHT);
     for (let pixel = 0; pixel < PIXEL_HEIGHT; pixel++) {
-      const energyIndex = col * PIXEL_HEIGHT + pixel;
+      // Find max energy across sub-pixel estimates for this pixel
+      const subStart = col * subPixelsPerColumn + pixel * SUB_PIXEL_FACTOR;
+      let maxEnergy = 0;
+      for (let sub = 0; sub < SUB_PIXEL_FACTOR; sub++) {
+        const e = energies[subStart + sub]!;
+        if (e > maxEnergy) maxEnergy = e;
+      }
       // pixel 0 in transmission = bottom row = row (PIXEL_HEIGHT-1) in display
-      column[PIXEL_HEIGHT - 1 - pixel] = energies[energyIndex]!;
+      column[PIXEL_HEIGHT - 1 - pixel] = maxEnergy;
     }
     columns.push(column);
   }
 
   return columns;
+}
+
+/**
+ * Convenience: decode samples directly into pixel columns.
+ * Used by tests and simple consumers.
+ */
+export function decode(samples: Float32Array, opts: DecodeOptions = {}): number[][] {
+  return energyToColumns(decodeEnergy(samples, opts));
 }

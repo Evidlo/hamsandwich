@@ -1,4 +1,4 @@
-import { decode } from '../hell/decoder.ts';
+import { decode, samplesPerColumn } from '../hell/decoder.ts';
 import { PIXEL_HEIGHT } from '../hell/constants.ts';
 import { AudioCapture } from '../audio/input.ts';
 
@@ -97,13 +97,12 @@ export class DecodePanel {
     this.sampleBuffer = newBuffer;
 
     // Decode whatever complete columns we can
-    const columns = decode(this.sampleBuffer, { toneHz: this.toneHz });
+    const opts = { toneHz: this.toneHz };
+    const columns = decode(this.sampleBuffer, opts);
     if (columns.length === 0) return;
 
     // Remove decoded samples from buffer
-    const samplesPerPixel = Math.round(48000 / 122.5);
-    const decodedSamples = columns.length * PIXEL_HEIGHT * samplesPerPixel;
-    this.sampleBuffer = this.sampleBuffer.slice(decodedSamples);
+    this.sampleBuffer = this.sampleBuffer.slice(columns.length * samplesPerColumn(opts));
 
     // Draw new columns
     for (const col of columns) {
