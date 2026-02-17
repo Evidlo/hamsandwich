@@ -4,7 +4,7 @@ import { AudioCapture } from '../audio/input.ts';
 const PIXEL_SIZE = 4;
 const RX_PIXEL_HEIGHT = PIXEL_SIZE / SUB_PIXEL_FACTOR;
 const PAD = 5;
-const CANVAS_WIDTH_COLUMNS = 300;
+const CANVAS_WIDTH_COLUMNS = 200;
 const LINE_HEIGHT = DISPLAY_ROWS * RX_PIXEL_HEIGHT;
 const LINE_GAP = 8;
 

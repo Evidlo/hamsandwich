@@ -24,7 +24,7 @@ export class App {
     root.innerHTML = `
       <h1>Ham Sandwich — Feld-Hell</h1>
       <div id="settings-container"></div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem;">
         <div id="encode-container"></div>
         <div id="decode-container"></div>
       </div>
