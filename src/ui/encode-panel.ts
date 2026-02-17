@@ -4,6 +4,7 @@ import { BAUD_RATE, PIXEL_HEIGHT } from '../hell/constants.ts';
 import { AudioPlayer } from '../audio/output.ts';
 
 const PIXEL_SIZE = 4;
+const PAD = 5;
 
 export class EncodePanel {
   private container: HTMLElement;
@@ -96,8 +97,10 @@ export class EncodePanel {
   }
 
   private renderColumns(columns: number[][]): void {
-    const width = columns.length * PIXEL_SIZE;
-    const height = PIXEL_HEIGHT * PIXEL_SIZE;
+    const contentWidth = columns.length * PIXEL_SIZE;
+    const contentHeight = PIXEL_HEIGHT * PIXEL_SIZE;
+    const width = contentWidth + PAD * 2;
+    const height = contentHeight + PAD * 2;
     this.canvas.width = width;
     this.canvas.height = height;
     this.canvas.style.width = `${width}px`;
@@ -111,14 +114,14 @@ export class EncodePanel {
       const col = columns[c]!;
       for (let r = 0; r < PIXEL_HEIGHT; r++) {
         if (col[r]) {
-          this.ctx.fillRect(c * PIXEL_SIZE, r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+          this.ctx.fillRect(PAD + c * PIXEL_SIZE, PAD + r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
         }
       }
     }
   }
 
   private drawCursor(columnIndex: number): void {
-    const x = columnIndex * PIXEL_SIZE;
+    const x = PAD + columnIndex * PIXEL_SIZE;
     this.ctx.strokeStyle = '#f00';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
