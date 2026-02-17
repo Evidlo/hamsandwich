@@ -5,7 +5,7 @@ export const BAUD_RATE = 122.5;
 export const SAMPLE_RATE = 48000;
 
 /** Default tone frequency in Hz */
-export const DEFAULT_TONE_HZ = 980;
+export const DEFAULT_TONE_HZ = 1200;
 
 /** Height of the font glyphs in rows */
 export const GLYPH_HEIGHT = 7;

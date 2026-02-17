@@ -1,11 +1,11 @@
-import { decode, samplesPerColumn } from '../hell/decoder.ts';
-import { COLUMN_HEIGHT } from '../hell/constants.ts';
+import { decode, samplesPerColumn, DISPLAY_ROWS, SUB_PIXEL_FACTOR } from '../hell/decoder.ts';
 import { AudioCapture } from '../audio/input.ts';
 
 const PIXEL_SIZE = 4;
+const RX_PIXEL_HEIGHT = PIXEL_SIZE / SUB_PIXEL_FACTOR;
 const PAD = 5;
 const CANVAS_WIDTH_COLUMNS = 300;
-const LINE_HEIGHT = COLUMN_HEIGHT * PIXEL_SIZE;
+const LINE_HEIGHT = DISPLAY_ROWS * RX_PIXEL_HEIGHT;
 const LINE_GAP = 8;
 
 export class DecodePanel {
@@ -148,12 +148,12 @@ export class DecodePanel {
     this.ctx.fillRect(x, this.activeLineY, PIXEL_SIZE, LINE_HEIGHT);
 
     // Draw pixels with analog intensity
-    for (let r = 0; r < COLUMN_HEIGHT; r++) {
+    for (let r = 0; r < DISPLAY_ROWS; r++) {
       const energy = column[r]!;
       if (energy > 0) {
         const g = Math.round(Math.min(energy, 1) * 255);
         this.ctx.fillStyle = `rgb(0,${g},0)`;
-        this.ctx.fillRect(x, this.activeLineY + r * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        this.ctx.fillRect(x, this.activeLineY + r * RX_PIXEL_HEIGHT, PIXEL_SIZE, RX_PIXEL_HEIGHT);
       }
     }
 

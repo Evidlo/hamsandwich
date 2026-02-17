@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { encode, textToPixelColumns } from '../../src/hell/encoder.ts';
-import { decode } from '../../src/hell/decoder.ts';
+import { decode, SUB_PIXEL_FACTOR } from '../../src/hell/decoder.ts';
 import { BUILTIN_FONT } from '../../src/hell/font.ts';
 import { CHAR_GAP_COLUMNS } from '../../src/hell/constants.ts';
 
@@ -9,12 +9,27 @@ function toBinary(columns: number[][], t = 0.3): number[][] {
   return columns.map(col => col.map(v => v > t ? 1 : 0));
 }
 
+/** Downsample decoded columns back to hellpixel resolution by max-pooling */
+function downsample(columns: number[][]): number[][] {
+  return columns.map(col => {
+    const out: number[] = [];
+    for (let i = 0; i < col.length; i += SUB_PIXEL_FACTOR) {
+      let max = 0;
+      for (let j = 0; j < SUB_PIXEL_FACTOR && i + j < col.length; j++) {
+        if (col[i + j]! > max) max = col[i + j]!;
+      }
+      out.push(max);
+    }
+    return out;
+  });
+}
+
 describe('encode → decode round-trip', () => {
   it('round-trips a single character', () => {
     const text = 'A';
     const expectedColumns = textToPixelColumns(text, BUILTIN_FONT);
     const samples = encode(text, BUILTIN_FONT);
-    const decodedColumns = toBinary(decode(samples));
+    const decodedColumns = toBinary(downsample(decode(samples)));
 
     expect(decodedColumns.length).toBe(expectedColumns.length);
     for (let i = 0; i < expectedColumns.length; i++) {
@@ -26,7 +41,7 @@ describe('encode → decode round-trip', () => {
     const text = 'HI';
     const expectedColumns = textToPixelColumns(text, BUILTIN_FONT);
     const samples = encode(text, BUILTIN_FONT);
-    const decodedColumns = toBinary(decode(samples));
+    const decodedColumns = toBinary(downsample(decode(samples)));
 
     expect(decodedColumns.length).toBe(expectedColumns.length);
     for (let i = 0; i < expectedColumns.length; i++) {
@@ -38,7 +53,7 @@ describe('encode → decode round-trip', () => {
     const text = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const expectedColumns = textToPixelColumns(text, BUILTIN_FONT);
     const samples = encode(text, BUILTIN_FONT);
-    const decodedColumns = toBinary(decode(samples));
+    const decodedColumns = toBinary(downsample(decode(samples)));
 
     expect(decodedColumns.length).toBe(expectedColumns.length);
     for (let i = 0; i < expectedColumns.length; i++) {
@@ -50,7 +65,7 @@ describe('encode → decode round-trip', () => {
     const text = '0123456789';
     const expectedColumns = textToPixelColumns(text, BUILTIN_FONT);
     const samples = encode(text, BUILTIN_FONT);
-    const decodedColumns = toBinary(decode(samples));
+    const decodedColumns = toBinary(downsample(decode(samples)));
 
     expect(decodedColumns.length).toBe(expectedColumns.length);
     for (let i = 0; i < expectedColumns.length; i++) {
@@ -63,7 +78,7 @@ describe('encode → decode round-trip', () => {
     const opts = { toneHz: 1200 };
     const expectedColumns = textToPixelColumns(text, BUILTIN_FONT);
     const samples = encode(text, BUILTIN_FONT, opts);
-    const decodedColumns = toBinary(decode(samples, opts));
+    const decodedColumns = toBinary(downsample(decode(samples, opts)));
 
     expect(decodedColumns.length).toBe(expectedColumns.length);
     for (let i = 0; i < expectedColumns.length; i++) {

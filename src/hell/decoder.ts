@@ -6,10 +6,10 @@ export interface DecodeOptions {
 }
 
 /**
- * Number of sub-pixel energy estimates per pixel duration.
- * Higher = sharper edges when timing is misaligned, but more CPU.
+ * Number of energy estimates per hellpixel duration.
+ * Higher = finer vertical resolution on the display, but more CPU.
  */
-const SUB_PIXEL_FACTOR = 4;
+export const SUB_PIXEL_FACTOR = 4;
 
 /**
  * Decode Feld-Hell audio samples into a continuous stream of energy estimates.
@@ -59,29 +59,23 @@ export function samplesPerColumn(opts: DecodeOptions = {}): number {
   return COLUMN_HEIGHT * SUB_PIXEL_FACTOR * windowSize;
 }
 
+/** Number of display rows per decoded column */
+export const DISPLAY_ROWS = COLUMN_HEIGHT * SUB_PIXEL_FACTOR;
+
 /**
- * Arrange energy estimates into pixel columns for display.
- * Each column is COLUMN_HEIGHT values (top to bottom), with each value being
- * the max energy from the sub-pixel estimates spanning that pixel.
- * Pixels are in transmission order (bottom to top), remapped to display order.
+ * Arrange energy estimates into display columns.
+ * Each column is DISPLAY_ROWS values (top to bottom), one per sub-pixel estimate.
+ * Transmission order (bottom to top) is remapped to display order (top to bottom).
  */
 export function energyToColumns(energies: Float32Array): number[][] {
-  const subPixelsPerColumn = COLUMN_HEIGHT * SUB_PIXEL_FACTOR;
-  const totalColumns = Math.floor(energies.length / subPixelsPerColumn);
+  const totalColumns = Math.floor(energies.length / DISPLAY_ROWS);
   const columns: number[][] = [];
 
   for (let col = 0; col < totalColumns; col++) {
-    const column: number[] = new Array(COLUMN_HEIGHT);
-    for (let pixel = 0; pixel < COLUMN_HEIGHT; pixel++) {
-      // Find max energy across sub-pixel estimates for this pixel
-      const subStart = col * subPixelsPerColumn + pixel * SUB_PIXEL_FACTOR;
-      let maxEnergy = 0;
-      for (let sub = 0; sub < SUB_PIXEL_FACTOR; sub++) {
-        const e = energies[subStart + sub]!;
-        if (e > maxEnergy) maxEnergy = e;
-      }
-      // pixel 0 in transmission = bottom row = row (COLUMN_HEIGHT-1) in display
-      column[COLUMN_HEIGHT - 1 - pixel] = maxEnergy;
+    const column: number[] = new Array(DISPLAY_ROWS);
+    for (let i = 0; i < DISPLAY_ROWS; i++) {
+      // estimate 0 in transmission = bottom row in display
+      column[DISPLAY_ROWS - 1 - i] = energies[col * DISPLAY_ROWS + i]!;
     }
     columns.push(column);
   }

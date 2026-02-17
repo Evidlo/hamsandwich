@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decode } from '../../src/hell/decoder.ts';
+import { decode, DISPLAY_ROWS, SUB_PIXEL_FACTOR } from '../../src/hell/decoder.ts';
 import { BAUD_RATE, COLUMN_HEIGHT, SAMPLE_RATE, DEFAULT_TONE_HZ } from '../../src/hell/constants.ts';
 
 /** Threshold analog energy values to binary for comparison */
@@ -58,10 +58,15 @@ describe('decode', () => {
     const columns = decode(samples);
 
     expect(columns.length).toBe(1);
-    // In display order (top to bottom), only the bottom pixel should be on
+    // In display order (top to bottom), only the bottom SUB_PIXEL_FACTOR rows should be on
     const binary = threshold(columns)[0]!;
-    expect(binary[COLUMN_HEIGHT - 1]).toBe(1);
-    expect(binary.slice(0, COLUMN_HEIGHT - 1).every(v => v === 0)).toBe(true);
+    expect(binary.length).toBe(DISPLAY_ROWS);
+    // Bottom SUB_PIXEL_FACTOR rows should be on
+    for (let i = DISPLAY_ROWS - SUB_PIXEL_FACTOR; i < DISPLAY_ROWS; i++) {
+      expect(binary[i]).toBe(1);
+    }
+    // Everything above should be off
+    expect(binary.slice(0, DISPLAY_ROWS - SUB_PIXEL_FACTOR).every(v => v === 0)).toBe(true);
   });
 
   it('returns empty for insufficient samples', () => {
