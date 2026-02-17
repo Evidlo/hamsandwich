@@ -1,8 +1,9 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 
-export default defineConfig({
-  base: '/ham/',
+export default defineConfig(({ command }) => ({
+  // /ham/ for dev server (behind Caddy reverse proxy), relative for production builds
+  base: command === 'serve' ? '/ham/' : './',
   server: {
     host: '0.0.0.0',
     port: 8009,
@@ -11,4 +12,4 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
   },
-})
+}))
