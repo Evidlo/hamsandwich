@@ -23,6 +23,9 @@ export class DecodePanel {
   private sampleBuffer: Float32Array = new Float32Array(0);
   /** Current column position on the active (top) line */
   private columnPos = 0;
+  /** Raw energy columns for the active and previous lines (for contrast redraw) */
+  private activeData: number[][] = [];
+  private prevData: number[][] = [];
 
   constructor(parent: HTMLElement, getAudioContext: () => Promise<AudioContext>, toneHz: number) {
     this.toneHz = toneHz;
@@ -67,6 +70,7 @@ export class DecodePanel {
 
   setContrast(contrast: number): void {
     this.contrast = contrast;
+    this.redrawCanvas();
   }
 
   /** Y offset of the active (top) line */
@@ -92,6 +96,8 @@ export class DecodePanel {
     this.listenButton.textContent = 'Stop Listening';
     this.sampleBuffer = new Float32Array(0);
     this.columnPos = 0;
+    this.activeData = [];
+    this.prevData = [];
     this.ctx.fillStyle = '#000';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -129,44 +135,49 @@ export class DecodePanel {
   }
 
   private drawColumn(column: number[]): void {
-    // If cursor has reached the end, copy active line to previous and clear active
+    // If cursor has reached the end, rotate lines
     if (this.columnPos >= CANVAS_WIDTH_COLUMNS) {
-      const activeData = this.ctx.getImageData(
-        PAD, this.activeLineY,
-        CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, LINE_HEIGHT,
-      );
-      // Clear previous line
+      this.prevData = this.activeData;
+      this.activeData = [];
+      this.columnPos = 0;
       this.ctx.fillStyle = '#000';
       this.ctx.fillRect(PAD, this.prevLineY, CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, LINE_HEIGHT);
-      // Paste active to previous
-      this.ctx.putImageData(activeData, PAD, this.prevLineY);
-      // Clear active line
-      this.ctx.fillStyle = '#000';
       this.ctx.fillRect(PAD, this.activeLineY, CANVAS_WIDTH_COLUMNS * PIXEL_SIZE, LINE_HEIGHT);
-      this.columnPos = 0;
+      this.renderLine(this.prevData, this.prevLineY);
     }
 
-    const x = PAD + this.columnPos * PIXEL_SIZE;
+    this.activeData.push(column);
+    this.renderColumn(column, PAD + this.columnPos * PIXEL_SIZE, this.activeLineY);
+    this.columnPos++;
+    this.drawCursor();
+  }
 
-    // Clear this column on active line
-    this.ctx.fillStyle = '#000';
-    this.ctx.fillRect(x, this.activeLineY, PIXEL_SIZE, LINE_HEIGHT);
-
-    // Draw pixels with analog intensity and contrast curve
+  private renderColumn(column: number[], x: number, lineY: number): void {
     const c = (1 - this.contrast) / this.contrast;
+    this.ctx.fillStyle = '#000';
+    this.ctx.fillRect(x, lineY, PIXEL_SIZE, LINE_HEIGHT);
     for (let r = 0; r < DISPLAY_ROWS; r++) {
       const raw = Math.min(Math.max(column[r]!, 0), 1);
       if (raw > 0) {
         const mapped = raw / (raw + c * (1 - raw));
         const g = Math.round(mapped * 255);
         this.ctx.fillStyle = `rgb(0,${g},0)`;
-        this.ctx.fillRect(x, this.activeLineY + r * RX_PIXEL_HEIGHT, PIXEL_SIZE, RX_PIXEL_HEIGHT);
+        this.ctx.fillRect(x, lineY + r * RX_PIXEL_HEIGHT, PIXEL_SIZE, RX_PIXEL_HEIGHT);
       }
     }
+  }
 
-    this.columnPos++;
+  private renderLine(data: number[][], lineY: number): void {
+    for (let i = 0; i < data.length; i++) {
+      this.renderColumn(data[i]!, PAD + i * PIXEL_SIZE, lineY);
+    }
+  }
 
-    // Draw red cursor line at current position
+  private redrawCanvas(): void {
+    this.ctx.fillStyle = '#000';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.renderLine(this.prevData, this.prevLineY);
+    this.renderLine(this.activeData, this.activeLineY);
     this.drawCursor();
   }
 
