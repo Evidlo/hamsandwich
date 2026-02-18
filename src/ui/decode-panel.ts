@@ -15,6 +15,7 @@ export class DecodePanel {
   private getAudioContext: () => Promise<AudioContext>;
   private capture: AudioCapture | null = null;
   private toneHz: number;
+  private contrast: number = 0.5;
   private listening = false;
   private listenButton: HTMLButtonElement;
 
@@ -62,6 +63,10 @@ export class DecodePanel {
 
   setToneHz(hz: number): void {
     this.toneHz = hz;
+  }
+
+  setContrast(contrast: number): void {
+    this.contrast = contrast;
   }
 
   /** Y offset of the active (top) line */
@@ -147,11 +152,13 @@ export class DecodePanel {
     this.ctx.fillStyle = '#000';
     this.ctx.fillRect(x, this.activeLineY, PIXEL_SIZE, LINE_HEIGHT);
 
-    // Draw pixels with analog intensity
+    // Draw pixels with analog intensity and contrast curve
+    const c = (1 - this.contrast) / this.contrast;
     for (let r = 0; r < DISPLAY_ROWS; r++) {
-      const energy = column[r]!;
-      if (energy > 0) {
-        const g = Math.round(Math.min(energy, 1) * 255);
+      const raw = Math.min(Math.max(column[r]!, 0), 1);
+      if (raw > 0) {
+        const mapped = raw / (raw + c * (1 - raw));
+        const g = Math.round(mapped * 255);
         this.ctx.fillStyle = `rgb(0,${g},0)`;
         this.ctx.fillRect(x, this.activeLineY + r * RX_PIXEL_HEIGHT, PIXEL_SIZE, RX_PIXEL_HEIGHT);
       }

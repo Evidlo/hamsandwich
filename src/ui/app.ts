@@ -45,5 +45,8 @@ export class App {
       encodePanel.setToneHz(hz);
       decodePanel.setToneHz(hz);
     });
+    settings.onContrastChange((contrast) => {
+      decodePanel.setContrast(contrast);
+    });
   }
 }
